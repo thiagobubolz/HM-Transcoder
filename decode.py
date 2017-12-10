@@ -9,7 +9,7 @@ cfg = ["BlowingBubbles_","RaceHorses_","KristenAndSara_","SlideEditing_","Basket
 for perc in percentage:
 	for i in range(6) :
 
-		exe = "../bin/TAppDecoderStatic -b " + cfg[i] + perc + "intra.bin -o " + cfg[i] + perc + "intra.yuv"
+		exe = "/bin/TAppDecoderStatic -b " + cfg[i] + perc + "intra.bin -o " + cfg[i] + perc + "intra.yuv"
 
 		print exe
 		os.system(exe)
