@@ -50,10 +50,16 @@
 #include <math.h>
 
 #include <deque>
+#include <cmath>
 using namespace std;
 
-void funcaoTrace(TComPic * pic);
-void funcaoArquivo (TComDataCU * CU, int ** matriz_0, int ** matriz_1);
+int **matriz;
+int colAtual;
+int linAtual;
+
+FILE *arquivoEntrada;
+
+void insereCU(int aux1, int aux2, int aux3, int aux4, int linInicial, int colInicial);
 
 //! \ingroup TLibEncoder
 //! \{
@@ -1044,7 +1050,8 @@ Void TEncGOP::compressGOP( Int iPOCLast, Int iNumPicRcvd, TComList<TComPic*>& rc
   {
     m_pcCfg->setEncodedFlag(iGOPid, false);
   }
-
+  if(!arquivoEntrada) arquivoEntrada = fopen("/home/Thiago/sequenceThiagoTranscoder/HM-Thiago/HM-Modificado/BQSquare/EntradaCoder.csv", "r");
+       
   for ( Int iGOPid=0; iGOPid < m_iGopSize; iGOPid++ )
   {
 #if EFFICIENT_FIELD_IRAP
@@ -1432,15 +1439,85 @@ Void TEncGOP::compressGOP( Int iPOCLast, Int iNumPicRcvd, TComList<TComPic*>& rc
       const UInt numberOfCtusInFrame=pcPic->getPicSym()->getNumberOfCtusInFrame();
       pcSlice->setSliceCurStartCtuTsAddr( 0 );
       pcSlice->setSliceSegmentCurStartCtuTsAddr( 0 );
+      
+       
+      //int linhas = numberOfCtusInFrame, sz;
+      //cout << "Altura: " << pcPic->getPicYuvOrg()->getHeight(COMPONENT_Y) << " Largura: " << pcPic->getPicYuvOrg()->getWidth(COMPONENT_Y) << "  Numero de CTU : " << numberOfCtusInFrame << endl;
+
+      //cout << ceil(pcPic->getPicYuvOrg()->getHeight(COMPONENT_Y)/64) << endl;
+      
+      int linhaMatriz =  ceil((float)pcPic->getPicYuvOrg()->getHeight(COMPONENT_Y)/64) * 64;
+      int colunaMatriz = ceil((float)pcPic->getPicYuvOrg()->getWidth(COMPONENT_Y)/64) * 64;
+        
+      //rewind(arquivoEntrada);
+      
+      //cout << "Altura: " << linhaMatriz << " Largura: " << colunaMatriz << "  Numero de CTU : " << numberOfCtusInFrame << endl;
+      
+      matriz = new int*[linhaMatriz];
+      for (int i = 0; i < linhaMatriz; ++i)
+          matriz[i] = new int[colunaMatriz];
+
+      for (int i = 0; i < linhaMatriz; ++i){
+        for (int j = 0; j < colunaMatriz; ++j){
+            matriz[i][j] = 0;
+        }
+      }
+      vector<int> vetor;
+      char aux;
+      int linInicial = 0;
+      int colInicial = 0;
+      linAtual = 0;
+      colAtual = 0;
+          
+      for (int i = 0; i < numberOfCtusInFrame; ++i){
+          //cout << "Linha e Coluna:  " << linAtual << "  " << colAtual << "  Numero da CTU: " << i << endl;
+          aux = fgetc(arquivoEntrada);
+          //cout << " aux : " << aux << " " << endl;
+          while((aux != '\n')){
+              vetor.push_back(aux - 48);
+              aux = fgetc(arquivoEntrada);
+              //cout << " aux : " << aux << " " << endl;
+          }
+          //cout << "saiu do while" << endl;
+          
+          for(int j = 0; j < vetor.size() ; j++){
+                if (vetor[j] == 1){
+                    for (int k = linAtual; k < linAtual + 32; ++k){
+                        for (int l = colAtual; l < colAtual + 32; ++l){
+                            matriz[k][l] = 1;
+                        }
+                    }
+                    colAtual = colAtual + 32;
+                    if (colAtual == colInicial + 64){
+                        linAtual = linAtual + 32;
+                        colAtual = colAtual - 64;
+                    } 
+
+                }else if (vetor[j] == 2 || vetor[j] == 3){
+                        int aux1, aux2, aux3, aux4;
+                        aux1 = vetor[j];
+                        aux2 = vetor[j+1];
+                        aux3 = vetor[j+2];
+                        aux4 = vetor[j+3];
+                        j = j+3;
+                        insereCU(aux1, aux2, aux3, aux4, linInicial, colInicial);
+                }
+          }          
+          vetor.clear();
+          if(colInicial + 64 == colunaMatriz){
+              linInicial = linInicial + 64;
+              colInicial = 0;
+          }else colInicial = colInicial + 64;
+          //cout << "Linha: " << linInicial << "  Coluna: " << colInicial << endl;
+          linAtual = linInicial;
+          colAtual = colInicial;
+      }
 
       for(UInt nextCtuTsAddr = 0; nextCtuTsAddr < numberOfCtusInFrame; )
       {
         m_pcSliceEncoder->precompressSlice( pcPic );
-        m_pcSliceEncoder->compressSlice   ( pcPic );
-
-        //RADC
-        funcaoTrace(pcPic);
-
+        m_pcSliceEncoder->compressSlice   (pcPic);
+        
         const UInt curSliceSegmentEnd = pcSlice->getSliceSegmentCurEndCtuTsAddr();
         if (curSliceSegmentEnd < numberOfCtusInFrame)
         {
@@ -1472,7 +1549,7 @@ Void TEncGOP::compressGOP( Int iPOCLast, Int iNumPicRcvd, TComList<TComPic*>& rc
         nextCtuTsAddr = curSliceSegmentEnd;
       }
     }
-
+    
     duData.clear();
     pcSlice = pcPic->getSlice(0);
 
@@ -2106,7 +2183,7 @@ Void TEncGOP::xCalculateAddPSNR( TComPic* pcPic, TComPicYuv* pcPicD, const Acces
   }
 
 #if ADAPTIVE_QP_SELECTION
-  printf("POC %4d TId: %1d ( %c-SLICE, nQP %d QP %d ) %10d bits",
+  printf("POC %4d TId: %1d ( %c-SLICE, nQP %d QP %d ) %1d bits",
          pcSlice->getPOC(),
          pcSlice->getTLayer(),
          c,
@@ -2586,176 +2663,39 @@ Void TEncGOP::applyDeblockingFilterMetric( TComPic* pcPic, UInt uiNumSlices )
   free(colSAD);
   free(rowSAD);
 }
+void insereCU(int aux1, int aux2, int aux3, int aux4, int linInicial, int colInicial){
 
-//! \}
-void funcaoTrace(TComPic * pic){
-    int i;
-    //,j,linha,k,l,m;
-    TComDataCU * CU;
-    //TComCUMvField * mvf;
-    //FILE * fp;
-    //int **matriz_0;
-    //int **matriz_1;
     
-    //int h,w;
-    
-    //h = pic->getFrameHeightInCtus() * 16;
-    //w = pic->getFrameWidthInCtus() * 16 * 3;
-    
-   /* matriz_0 = (int **) malloc(sizeof(int*) * h);
-    matriz_1 = (int **) malloc(sizeof(int*) * h);    
-    
-    for (i=0; i < h; i++){
-        matriz_0[i] = (int*) malloc(sizeof(int) * w );
-        matriz_1[i] = (int*) malloc(sizeof(int) * w );
-    }
-    
-    printf("%d:%d\n",pic->getFrameWidthInCtus(),pic->getFrameHeightInCtus());
-    */
-  
-  //ESTE TRECHO TE IMPORTA THIAGO
-    for (i=0 ; i< pic->getNumberOfCtusInFrame(); i++){
-        CU = pic->getCtu(i);
-        funcaoArquivo(CU, NULL, NULL); //chama funcao que faz trace do Matlab        
-    }
-  //ATÉ AQUI (O RESTANTE TRATA VETORES DE MOVIMENTO)
-     
-    /*   
-    fp = fopen ("MV-0.csv","a");
-    for (i = 0; i < h; i++){
-        for(j = 0; j < w/3; j++){
-            fprintf(fp,"%d,%d,%d,%d,%d,",matriz_0[i][3*j],j*4+2,i*4+2,matriz_0[i][3*j+1],matriz_0[i][3*j+2]);
+    for (int i = linAtual; i < linAtual + 16; ++i){
+        for (int j = colAtual; j < colAtual + 16; ++j){
+            matriz[i][j] = aux1;
         }
     }
-    fclose(fp);
-    
-    fp = fopen ("MV-1.csv","a");
-    for (i = 0; i < h; i++){
-        for(j = 0; j < w/3; j++){
-            fprintf(fp,"%d,%d,%d,%d,%d,",matriz_1[i][3*j],j*4+2,i*4+2,matriz_1[i][3*j+1],matriz_1[i][3*j+2]);
+    colAtual = colAtual + 16;
+    for (int i = linAtual; i < linAtual + 16; ++i){
+        for (int j = colAtual; j < colAtual + 16; ++j){
+            matriz[i][j] = aux2;
         }
     }
-    fclose(fp);
-    */
-    
+    colAtual = colAtual - 16;
+    linAtual = linAtual + 16;
+    for (int i = linAtual; i < linAtual + 16; ++i){
+        for (int j = colAtual; j < colAtual + 16; ++j){
+            matriz[i][j] = aux3;
+        }
+    }
+    colAtual = colAtual + 16;
+    for (int i = linAtual; i < linAtual + 16; ++i){
+        for (int j = colAtual; j < colAtual + 16; ++j){
+            matriz[i][j] = aux4;
+        }
+    }
+    colAtual = colAtual + 16;
+    linAtual = linAtual + 16;
+
+    if (linAtual == linInicial + 32 && colAtual == colInicial + 32){
+        linAtual = linAtual - 32;
+    }else if(linAtual == linInicial + 64 && colAtual == colInicial + 32){
+        linAtual = linAtual -32;
+    }else if(linAtual == linInicial + 32 && colAtual == colInicial + 64) colAtual = colAtual - 64;
 }
-
-
-
-void funcaoArquivo (TComDataCU * CU, int ** matriz_0, int ** matriz_1){
-    FILE *fp;
-    int i,length;
-    //int j;
-    
-    int *depth;
-    int *predMode;
-    int *partSize;
-    //int *skipFlag;
-    
-    int TotalSize;
-    TotalSize = CU->getTotalNumPart();
-    
-    if(TotalSize != 256)
-    {
-        printf("Cuidado, problema de inconsistencia da variavel CU->getTotalNumPart()\n");
-    }
-    
-    //TComCUMvField *mvf_0, *mvf_1;
-    TComMv mv;
-    
-    depth = (int *) malloc(TotalSize*sizeof(int));
-    predMode = (int *) malloc(TotalSize*sizeof(int));
-    partSize = (int *) malloc(TotalSize*sizeof(int));
-    //skipFlag = (int *) malloc(TotalSize*sizeof(int));
-    
-    fp = fopen ("traceMatlab.csv","a");
-    //printf("Ruhan Conceicao\n");
-    
-    fprintf(fp,"%d,%d,%d,",CU->getCtuRsAddr(),CU->getCUPelX(),CU->getCUPelY());
-
-    i=0;
-    length=0;
-    while (i < CU->getTotalNumPart()){
-        depth[length] = (int) CU->getDepth(i);
-        predMode[length] = (int) CU->getPredictionMode(i);
-        partSize[length] = (int) CU->getPartitionSize(i);
-        //skipFlag[length] = (int) CU->getSkipFlag(i);
-        
-        i = i + 1;
-
-        //i = i + ((16>>depth[length]) * (16>>depth[length]));
-        length++;
-    }
- 
-    fprintf(fp,"%d,%d\n",length,CU->getPic()->getPOC());
-    
-    fprintf(fp,"Dp:");
-    fprintf(fp,"%d",depth[0]);
-    for(i=1;i<length;i++){
-        fprintf(fp,",%d",depth[i]);
-    }
-    fprintf(fp,"\n");
-   
-   /*
-    fprintf(fp,"SF:");
-    fprintf(fp,"%d",skipFlag[0]);
-    for(i=1;i<length;i++){
-        fprintf(fp,",%d",skipFlag[i]);
-    }
-    fprintf(fp,"\n");
-  */
-    
-    fprintf(fp,"PM:");
-    fprintf(fp,"%d",predMode[0]);
-    for(i=1;i<length;i++){
-        fprintf(fp,",%d",predMode[i]);
-    }
-    fprintf(fp,"\n");
-   
-    /*fprintf(fp,"PS:");
-    fprintf(fp,"%d",partSize[0]);
-    for(i=1;i<length;i++){
-        fprintf(fp,",%d",partSize[i]);
-    }*/
-    //fprintf(fp,"\n");
-    fclose(fp);
-    
-    
-    
-    //mvf_0 = CU->getCUMvField(REF_PIC_LIST_0);
-    //mvf_1 = CU->getCUMvField(REF_PIC_LIST_1);
-    
-
-    
-    //int offsetY = (CU->getCUPelY()/64) * 16;
-    //int offsetX = (CU->getCUPelX()/64) * 16 * 3;
-    
-    /*
-    
-    for (i=0; i < 16; i++){
-        for (j = 0; j < 16; j++){
-            mv = mvf_0->getMv(g_auiRasterToZscan[16*i+j]);
-            matriz_0[i+offsetY][offsetX+(3*j)] = mvf_0->getRefIdx(g_auiRasterToZscan[16*i+j]);
-            matriz_0[i+offsetY][offsetX+(3*j)+1] = mv.getHor();
-            matriz_0[i+offsetY][offsetX+(3*j)+2] = mv.getVer();
-        }
-    }
-    
-    for (i=0; i < 16; i++){
-        for (j = 0; j < 16; j++){
-            mv = mvf_1->getMv(g_auiRasterToZscan[16*i+j]);
-            matriz_1[i+offsetY][offsetX+(3*j)] = mvf_1->getRefIdx(g_auiRasterToZscan[16*i+j]);
-            matriz_1[i+offsetY][offsetX+(3*j)+1] = mv.getHor();
-            matriz_1[i+offsetY][offsetX+(3*j)+2] = mv.getVer();
-        }
-    }
-    */
-   
-    free(depth);
-    free(predMode);
-    free(partSize);
-    //free(skipFlag);
-    
-}
-
-//! \}

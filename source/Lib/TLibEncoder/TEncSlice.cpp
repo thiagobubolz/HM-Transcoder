@@ -39,6 +39,7 @@
 #include "TEncSlice.h"
 #include <math.h>
 
+extern int **matriz;
 //! \ingroup TLibEncoder
 //! \{
 
@@ -570,9 +571,9 @@ Void TEncSlice::precompressSlice( TComPic* pcPic )
     pcSlice       ->setSliceQpBase         ( m_piRdPicQp    [uiQpIdx] );
 #endif
     setUpLambda(pcSlice, m_pdRdPicLambda[uiQpIdx], m_piRdPicQp    [uiQpIdx]);
-
+    
     // try compress
-    compressSlice   ( pcPic );
+    compressSlice   (pcPic);
 
     Double dPicRdCost;
     UInt64 uiPicDist        = m_uiPicDist;
@@ -640,7 +641,7 @@ Void TEncSlice::calCostSliceI(TComPic* pcPic)
 
 /** \param pcPic   picture class
  */
-Void TEncSlice::compressSlice( TComPic* pcPic )
+Void TEncSlice::compressSlice( TComPic* pcPic)
 {
   UInt   startCtuTsAddr;
   UInt   boundingCtuTsAddr;
@@ -811,9 +812,8 @@ Void TEncSlice::compressSlice( TComPic* pcPic )
     }
 
     // run CTU trial encoder
-    m_pcCuEncoder->compressCtu( pCtu );
-
-
+    m_pcCuEncoder->compressCtu(pCtu);
+    
     // All CTU decisions have now been made. Restore entropy coder to an initial stage, ready to make a true encode,
     // which will result in the state of the contexts being correct. It will also count up the number of bits coded,
     // which is used if there is a limit of the number of bytes per slice-segment.

@@ -45,6 +45,9 @@
 #include <algorithm>
 using namespace std;
 
+int maxDepth;
+extern int **matriz;
+
 
 //! \ingroup TLibEncoder
 //! \{
@@ -225,7 +228,7 @@ Void TEncCu::init( TEncTop* pcEncTop )
 /** 
  \param  pCtu pointer of CU data class
  */
-Void TEncCu::compressCtu( TComDataCU* pCtu )
+Void TEncCu::compressCtu( TComDataCU* pCtu)
 {
   // initialize CU data
   m_ppcBestCU[0]->initCtu( pCtu->getPic(), pCtu->getCtuRsAddr() );
@@ -346,9 +349,9 @@ Void TEncCu::deriveTestModeAMP (TComDataCU *pcBestCU, PartSize eParentPartSize, 
  *  - for loop of QP value to compress the current CU with all possible QP
 */
 #if AMP_ENC_SPEEDUP
-Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt uiDepth DEBUG_STRING_FN_DECLARE(sDebug_), PartSize eParentPartSize )
+Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt uiDepth DEBUG_STRING_FN_DECLARE(sDebug_), PartSize eParentPartSize)
 #else
-Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt uiDepth )
+Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt uiDepth)
 #endif
 {
   TComPic* pcPic = rpcBestCU->getPic();
@@ -735,15 +738,36 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
     const Bool bIsLosslessMode = false; // False at this level. Next level down may set it to true.
 
     rpcTempCU->initEstData( uiDepth, iQP, bIsLosslessMode );
-
+    
     // further split
-    if( bSubBranch && uiDepth < sps.getLog2DiffMaxMinCodingBlockSize() )
+    /*
+    * Foi adicionado o teste se a profundidade atual é menor ou igual a profundidade máxima, junto com o contador e o lookFurther
+    && uiDepth <= maxDepth
+     */
+    
+    int xAtual = rpcTempCU->getCUPelY();
+    int yAtual = rpcTempCU->getCUPelX();
+    
+    maxDepth = matriz[xAtual][yAtual];
+    if(maxDepth == 0) maxDepth++; 
+    
+    //cout << "MaxDepth: " << maxDepth << "  UiDepth" << uiDepth << endl;
+    //cout << "X: " << xAtual << "  Y" << yAtual << endl;
+
+    
+    if( bSubBranch && uiDepth < sps.getLog2DiffMaxMinCodingBlockSize() && uiDepth < maxDepth)
     {
+      //cout << "MaxDepth After: " << maxDepth << "  UiDepth After" << uiDepth << endl;
+      //cout << "X: " << xAtual << "  Y" << yAtual << endl;
+      
       UChar       uhNextDepth         = uiDepth+1;
       TComDataCU* pcSubBestPartCU     = m_ppcBestCU[uhNextDepth];
       TComDataCU* pcSubTempPartCU     = m_ppcTempCU[uhNextDepth];
       DEBUG_STRING_NEW(sTempDebug)
-
+              
+      /*
+      *  AQUI COMEÇA O FOR DAS SUBDIVISÕES
+      */
       for ( UInt uiPartUnitIdx = 0; uiPartUnitIdx < 4; uiPartUnitIdx++ )
       {
         pcSubBestPartCU->initSubCU( rpcTempCU, uiPartUnitIdx, uhNextDepth, iQP );           // clear sub partition datas or init.
@@ -764,16 +788,16 @@ Void TEncCu::xCompressCU( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt u
           DEBUG_STRING_NEW(sChild)
           if ( !rpcBestCU->isInter(0) )
           {
-            xCompressCU( pcSubBestPartCU, pcSubTempPartCU, uhNextDepth DEBUG_STRING_PASS_INTO(sChild), NUMBER_OF_PART_SIZES );
+            xCompressCU( pcSubBestPartCU, pcSubTempPartCU, uhNextDepth DEBUG_STRING_PASS_INTO(sChild), NUMBER_OF_PART_SIZES);
           }
           else
           {
 
-            xCompressCU( pcSubBestPartCU, pcSubTempPartCU, uhNextDepth DEBUG_STRING_PASS_INTO(sChild), rpcBestCU->getPartitionSize(0) );
+            xCompressCU( pcSubBestPartCU, pcSubTempPartCU, uhNextDepth DEBUG_STRING_PASS_INTO(sChild), rpcBestCU->getPartitionSize(0));
           }
           DEBUG_STRING_APPEND(sTempDebug, sChild)
 #else
-          xCompressCU( pcSubBestPartCU, pcSubTempPartCU, uhNextDepth );
+          xCompressCU( pcSubBestPartCU, pcSubTempPartCU, uhNextDepth, linhaMatriz );
 #endif
 
           rpcTempCU->copyPartFrom( pcSubBestPartCU, uiPartUnitIdx, uhNextDepth );         // Keep best part data to current temporary data.

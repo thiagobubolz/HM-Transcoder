@@ -108,7 +108,7 @@ public:
   Void  destroy             ();
 
   /// CTU analysis function
-  Void  compressCtu         ( TComDataCU*  pCtu );
+  Void  compressCtu         ( TComDataCU*  pCtu);
 
   /// CTU encoding function
   Void  encodeCtu           ( TComDataCU*  pCtu );
@@ -118,9 +118,9 @@ public:
 protected:
   Void  finishCU            ( TComDataCU*  pcCU, UInt uiAbsPartIdx,           UInt uiDepth        );
 #if AMP_ENC_SPEEDUP
-  Void  xCompressCU         ( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt uiDepth DEBUG_STRING_FN_DECLARE(sDebug), PartSize eParentPartSize = NUMBER_OF_PART_SIZES );
+  Void  xCompressCU         ( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt uiDepth DEBUG_STRING_FN_DECLARE(sDebug), PartSize eParentPartSize = NUMBER_OF_PART_SIZES);
 #else
-  Void  xCompressCU         ( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt uiDepth        );
+  Void  xCompressCU         ( TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt uiDepth);
 #endif
   Void  xEncodeCU           ( TComDataCU*  pcCU, UInt uiAbsPartIdx,           UInt uiDepth        );
 

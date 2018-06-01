@@ -36,8 +36,16 @@
 */
 
 #include "TDecCu.h"
+#include "TLibCommon/TComRdCost.h"
 #include "TLibCommon/TComTU.h"
 #include "TLibCommon/TComPrediction.h"
+
+void funcaoArquivo (TComDataCU * CU);
+void funcaoArquivo2 (TComDataCU * CU);
+int TreeDepth0(float *x);
+int TreeDepth1(float *x);
+int TreeDepth2(float *x);
+int TreeDepth3(float *x);
 
 //! \ingroup TLibDecoder
 //! \{
@@ -148,6 +156,8 @@ Void TDecCu::decodeCtu( TComDataCU* pCtu, Bool& isLastCtuOfSliceSegment )
 Void TDecCu::decompressCtu( TComDataCU* pCtu )
 {
   xDecompressCU( pCtu, 0,  0 );
+  funcaoArquivo(pCtu);
+  //funcaoArquivo2(pCtu);
 }
 
 // ====================================================================================================================
@@ -316,6 +326,7 @@ Void TDecCu::xDecodeCU( TComDataCU*const pcCU, const UInt uiAbsPartIdx, const UI
   setIsChromaQpAdjCoded( isChromaQpAdjCoded );
   setdQPFlag( bCodeDQP );
   xFinishDecodeCU( pcCU, uiAbsPartIdx, uiDepth, isLastCtuOfSliceSegment );
+
 }
 
 Void TDecCu::xFinishDecodeCU( TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth, Bool &isLastCtuOfSliceSegment)
@@ -834,5 +845,824 @@ Void TDecCu::xFillPCMBuffer(TComDataCU* pCU, UInt depth)
     }
   }
 }
+
+//! \}
+
+void funcaoArquivo (TComDataCU * CU){
+    FILE *fp, *fp2;
+    int i,length;
+
+    float reducao = 0.6;
+    
+    int *depth;
+    int *predMode;
+    int *partSize;
+    int *skipFlag;
+    int *qp;
+    int *transformIdx;
+    int *mergeflag;
+    int *mergeindex;
+    int *intraDirLuma;
+    int *intraDirCroma;
+    int *interDir;  
+    int *explicitRdpcmModeY;
+    int *explicitRdpcmModeCb;
+    int *explicitRdpcmModeCr;
+    int *CbfY;
+    int *CbfCb;
+    int *CbfCr;
+    int *apiMVPIdx;
+    int *apiMVPNum;
+
+    
+    int TotalSize;
+    TotalSize = CU->getTotalNumPart();
+    
+    if(TotalSize != 256)
+    {
+        printf("Cuidado, problema de inconsistencia da variavel CU->getTotalNumPart()\n");
+    }
+    
+    depth         = (int *) malloc(TotalSize*sizeof(int));
+    predMode      = (int *) malloc(TotalSize*sizeof(int));
+    partSize      = (int *) malloc(TotalSize*sizeof(int));
+    skipFlag      = (int *) malloc(TotalSize*sizeof(int));
+    qp            = (int *) malloc(TotalSize*sizeof(int));
+    transformIdx  = (int *) malloc(TotalSize*sizeof(int));
+    mergeflag     = (int *) malloc(TotalSize*sizeof(int));
+    mergeindex    = (int *) malloc(TotalSize*sizeof(int));
+    intraDirLuma  = (int *) malloc(TotalSize*sizeof(int));
+    intraDirCroma = (int *) malloc(TotalSize*sizeof(int));
+    interDir      = (int *) malloc(TotalSize*sizeof(int));
+    explicitRdpcmModeY= (int *) malloc(TotalSize*sizeof(int));
+    explicitRdpcmModeCb= (int *) malloc(TotalSize*sizeof(int));
+    explicitRdpcmModeCr= (int *) malloc(TotalSize*sizeof(int));
+    CbfY		= (int *) malloc(TotalSize*sizeof(int));
+    CbfCb 			= (int *) malloc(TotalSize*sizeof(int));
+    CbfCr 			= (int *) malloc(TotalSize*sizeof(int));
+    apiMVPIdx		= (int *) malloc(TotalSize*sizeof(int));
+    apiMVPNum		= (int *) malloc(TotalSize*sizeof(int));
+
+
+    fp = fopen ("traceMatlab.csv","a");
+    fp2 = fopen ("trace2.csv","a");
+
+    //fprintf(fp,"%d,%d,%d,",CU->getCtuRsAddr(),CU->getCUPelX(),CU->getCUPelY());
+
+
+
+    i=0;
+    length=0;
+    while (i < CU->getTotalNumPart()){
+        depth[length]           = (int) CU->getDepth(i);
+        predMode[length]        = (int) CU->getPredictionMode(i);
+        partSize[length]        = (int) CU->getPartitionSize(i);
+        skipFlag[length]        = (int) CU->getSkipFlag(i);
+        qp[length]              = (int) CU->getQP(i);
+        transformIdx[length]     = (int) CU->getTransformIdx(i);
+        mergeflag[length]       = (int) CU->getMergeFlag(i);
+        mergeindex[length]      = (int) CU->getMergeIndex(i);
+        intraDirLuma[length]    = (int) CU->getIntraDir(toChannelType(ComponentID(0)),i);
+        intraDirCroma[length]   = (int) CU->getIntraDir(toChannelType(ComponentID(1)),i);
+        interDir[length]        = (int) CU->getInterDir(i);
+        explicitRdpcmModeY[length]= (int) CU->getExplicitRdpcmMode(ComponentID(COMPONENT_Y), i);
+        explicitRdpcmModeCb[length]= (int) CU->getExplicitRdpcmMode(ComponentID(COMPONENT_Cb), i);
+        explicitRdpcmModeCr[length]= (int) CU->getExplicitRdpcmMode(ComponentID(COMPONENT_Cr), i);
+        CbfY[length] 			= (int) CU->getCbf(i, ComponentID(COMPONENT_Y));
+        CbfCb[length] 			= (int) CU->getCbf(i, ComponentID(COMPONENT_Cb));
+        CbfCr[length] 			= (int) CU->getCbf(i, ComponentID(COMPONENT_Cr));
+        apiMVPIdx[length]		= (int) CU->getMVPIdx(REF_PIC_LIST_0, i);
+        apiMVPNum[length]		= (int) CU->getMVPNum(REF_PIC_LIST_0, i);
+
+        //i = i + 1;
+
+        if(depth[length] == 3){
+          i = i + ((16>>depth[length]) * (16>>depth[length]));
+          i = i + ((16>>depth[length]) * (16>>depth[length]));
+          i = i + ((16>>depth[length]) * (16>>depth[length]));
+        }
+        i = i + ((16>>depth[length]) * (16>>depth[length]));
+        length++;
+    }
+
+    //fprintf(fp,"%d,%d,%d\n",length,CU->getPic()->getPOC(),CU->getSlice()->getSliceType());   
+
+
+//Parte para a criação das tabelas de treinamento da arvore de decisão
+    //fprintf(fp, "Address,PosX,PosY,Lengh,Slice,Type,Depth,PredMode,PartSize,SkipFlag,QP,TransformIdx,mergeflag,mergeindex,intraDirLuma,intraDirCroma,interDir,explicitRdpcmModeY,explicitRdpcmModeCb,explicitRdpcmModeCr,CbfY,CbfCb,CbfCr,apiMVPIdx,apiMVPNum \n");
+
+    if(depth[0] == 0){
+      float x[5];
+
+      x[0]= CU->getCtuRsAddr();
+      x[1]= CU->getCUPelX();
+      x[2]= CU->getCUPelY(); 
+
+      x[3]= qp[0];
+      x[4]= reducao;
+
+      fprintf(fp, "%d", TreeDepth0(x));
+      fprintf(fp2, "%d", depth[0]);
+
+    }else if(depth[0] == 1){
+            float x[11];
+
+            x[0]= CU->getCtuRsAddr();
+            x[1]= CU->getCUPelX();
+            x[2]= CU->getCUPelY();
+            x[3]= CU->getSlice()->getSliceType(); 
+
+            x[4]= predMode[0];    
+            x[5]= qp[0];    
+            x[6]= interDir[0];
+            x[7]= CbfY[0];    
+            x[8]= CbfCb[0];    
+            x[9]= CbfCr[0];
+            x[10]= reducao;
+
+            fprintf(fp, "%d", TreeDepth1(x));
+            fprintf(fp2, "%d", depth[0]);
+
+
+          }else if(depth[0] == 2){
+                  float x[12];
+
+                  x[0]= CU->getCtuRsAddr();
+                  x[1]= CU->getCUPelX();
+                  x[2]= CU->getCUPelY();
+                  x[3]= CU->getSlice()->getSliceType(); 
+                  x[4]= predMode[0];    
+                  x[5]= qp[0];    
+                  x[6]= transformIdx[0];    
+                  x[7]= intraDirLuma[0];    
+                  x[8]= intraDirCroma[0];    
+                  x[9]= interDir[0];
+                  x[10]= CbfCr[0]; 
+                  x[11]= reducao;
+
+                  fprintf(fp, "%d", TreeDepth2(x));
+                  fprintf(fp2, "%d", depth[0]);
+
+
+                }else if(depth[0] == 3){
+                        float x[8];
+
+                        x[0]= CU->getCtuRsAddr();
+                        x[1]= CU->getCUPelX();
+                        x[2]= CU->getCUPelY();
+                        x[3]= CU->getSlice()->getSliceType(); 
+                        x[4]= skipFlag[0];  
+                        x[5]= qp[0];
+                        x[6]= interDir[0];
+                        x[7]= reducao;
+
+                        fprintf(fp, "%d", TreeDepth3(x));
+                        fprintf(fp2, "%d", depth[0]);
+
+
+                }
+
+  	for(i=1;i<length;i++){
+        if(depth[i] == 0){
+              float x[5];
+
+              x[0]= CU->getCtuRsAddr();
+              x[1]= CU->getCUPelX();
+              x[2]= CU->getCUPelY(); 
+
+              x[3]= qp[i];
+              x[4]= reducao;
+
+              fprintf(fp, "%s%d", ",",TreeDepth0(x));
+              fprintf(fp2,"%s%d", ",",depth[i]);
+
+
+            }else if(depth[i] == 1){
+                    float x[11];
+
+                    x[0]= CU->getCtuRsAddr();
+                    x[1]= CU->getCUPelX();
+                    x[2]= CU->getCUPelY();
+                    x[3]= CU->getSlice()->getSliceType(); 
+
+                    x[4]= predMode[i];    
+                    x[5]= qp[i];    
+                    x[6]= interDir[i];
+                    x[7]= CbfY[i];    
+                    x[8]= CbfCb[i];    
+                    x[9]= CbfCr[i];
+                    x[10]= reducao;
+
+                    fprintf(fp, "%s%d", ",",TreeDepth1(x));
+                    fprintf(fp2,"%s%d", ",",depth[i]);
+
+
+                  }else if(depth[i] == 2){
+                          float x[12];
+
+                          x[0]= CU->getCtuRsAddr();
+                          x[1]= CU->getCUPelX();
+                          x[2]= CU->getCUPelY();
+                          x[3]= CU->getSlice()->getSliceType(); 
+                          x[4]= predMode[i];    
+                          x[5]= qp[i];    
+                          x[6]= transformIdx[i];    
+                          x[7]= intraDirLuma[i];    
+                          x[8]= intraDirCroma[i];    
+                          x[9]= interDir[i];
+                          x[10]= CbfCr[i]; 
+                          x[11]= reducao;
+
+                          fprintf(fp, "%s%d", ",",TreeDepth2(x));
+                          fprintf(fp2,"%s%d", ",",depth[i]);
+
+
+                        }else if(depth[i] == 3){
+                                float x[8];
+
+                                x[0]= CU->getCtuRsAddr();
+                                x[1]= CU->getCUPelX();
+                                x[2]= CU->getCUPelY();
+                                x[3]= CU->getSlice()->getSliceType(); 
+                                x[4]= skipFlag[i];  
+                                x[5]= qp[i];
+                                x[6]= interDir[i];
+                                x[7]= reducao;
+
+                                fprintf(fp, "%s%d", ",",TreeDepth3(x));
+                                fprintf(fp2,"%s%d", ",",depth[i]);
+
+
+                        }
+
+    }
+    fprintf(fp,"\n");
+    fprintf(fp2, "\n");
+
+    fclose(fp);
+    fclose(fp2);
+   
+    free(depth);
+    free(predMode);
+    free(partSize);
+    free(skipFlag);
+    free(qp);
+    free(transformIdx);
+    free(mergeflag);
+    free(mergeindex);
+    free(intraDirLuma);
+    free(intraDirCroma);
+    free(interDir);
+    free(explicitRdpcmModeY);
+    free(explicitRdpcmModeCb);
+    free(explicitRdpcmModeCr);
+    free(CbfY);
+    free(CbfCb);
+    free(CbfCr);
+    free(apiMVPIdx);
+    free(apiMVPNum);
+    
+}
+
+void funcaoArquivo2 (TComDataCU * CU){
+    FILE *fp;
+    int i,length;
+    
+    int *depth;
+    
+    int TotalSize;
+    TotalSize = CU->getTotalNumPart();
+    
+    if(TotalSize != 256)
+    {
+        printf("Cuidado, problema de inconsistencia da variavel CU->getTotalNumPart()\n");
+    }
+    
+    depth = (int *) malloc(TotalSize*sizeof(int));
+    
+    fp = fopen ("trace2.csv","a");
+
+    i=0;
+    length=0;
+    while (i < CU->getTotalNumPart()){
+        depth[length] = (int) CU->getDepth(i);        
+        //i = i + 1;
+        if(depth[length] == 3){
+          i = i + ((16>>depth[length]) * (16>>depth[length]));
+          i = i + ((16>>depth[length]) * (16>>depth[length]));
+          i = i + ((16>>depth[length]) * (16>>depth[length]));
+        }
+        i = i + ((16>>depth[length]) * (16>>depth[length]));
+        length++;
+    }
+    
+    fprintf(fp,"%d",depth[0]);
+
+    for(i=1;i<length;i++){
+        fprintf(fp,"%s%d", ",",depth[i]);
+    }
+    fprintf(fp,"\n");
+    fclose(fp);
+ 
+    free(depth);    
+}
+
+int TreeDepth0(float *x){
+  if(x[0] > 999) return 1;
+  else{
+      if(x[1] > 2496) return 1 ;
+      else{
+          if(x[3] > 48) return 1 ;
+          else{
+              if(x[4] <= 0.3) return 0 ;
+              else{
+                  if(x[0] > 219){
+                      if(x[3] <= 30) return 1 ;
+                      else{
+                          if(x[3] <= 32) return 0 ;
+                          else{
+                              if(x[3] <= 38) return 1 ;
+                              else return 0 ;
+                          }
+                      }            
+                  }else{
+                      if(x[3] > 32) return 0 ;
+                      else{
+                          if(x[1] > 1216) return 1 ;
+                          else{
+                              if(x[3] <= 21) return 1 ;
+                              else{
+                                  if(x[2] > 512) return 0 ;
+                                  else{
+                                      if (x[0] > 172) return 1 ;
+                                      else{
+                                          if(x[4] <= 0.8) return 0 ;
+                                          else return 1 ;
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }           
+          }
+      }                                    
+  }
+
+}
+
+int TreeDepth1(float *x){
+  if(x[3] >= 2){  
+      if(x[2] <= 0)   return 0 ;
+      else  return 1;
+  }else{  
+      if(x[4] >= 2)  return -1;
+      else{  
+          if(x[10] <= 0.25){  
+              if(x[5] >= 51)  return 0 ;
+              else{  
+                  if(x[1] <= 2496)  return -1; 
+                  else{ 
+                      if(x[5] <= 31)  return 1;
+                      else return -1;
+                  }
+              }
+          }else{ 
+              if(x[6] <= 1){  
+                  if(x[7] >= 1){  
+                      if(x[5] >= 42)  return 1;
+                      else{  
+                          if(x[5] <= 22)  return 0 ;
+                          else  return -1;
+                      }
+                  }else{  
+                      if(x[5] <= 46){ 
+                          if(x[5] <= 25)  return -1;
+                          else   return 1;
+                      }else { 
+                          if(x[10] >= 0.8)  return 1;
+                          else{
+                              if(x[5] <= 49)   return 0 ;
+                              else{ 
+                                  if(x[5] <= 50)   return 1;
+                                  else  return 0 ;
+                              }
+                          }
+                      }
+                  }
+              }else{ 
+                  if(x[1] >= 3136){ 
+                      if(x[5] <= 44)   return 1;
+                      else{ 
+                          if(x[10] <= 0.4)   return 0 ;
+                          else{ 
+                              if(x[10] <= 0.85)    return 0 ;
+                              else    return 1;
+                          }
+                      }
+                  }else{  
+                      if(x[0] >= 1377){  
+                          if(x[5] <= 43)    return 1;
+                          else{ 
+                              if(x[10] <= 0.8)   return 0 ;
+                              else   return 1;
+                          }
+                      }else{ 
+                          if(x[5] >= 43){
+                              if(x[5] <= 42)  return 1;
+                              else{ 
+                                  if(x[5] <= 50)  return 1;
+                                  else{
+                                      if(x[9] <= 0)  return 0 ;
+                                      else  return 1;
+                                  }
+                              }
+                          }else{ 
+                              if(x[10] <= 0.5)   return -1;
+                              else{  
+                                  if(x[5] >= 33)   return -1;
+                                  else{ 
+                                      if(x[5] <= 22){  
+                                          if(x[6] <= 2)  return -1;
+                                          else 
+                                             if(x[10] <= 0.6)  return 0 ;
+                                              else 
+                                                  if(x[0] <= 356)  return 0 ;
+                                                  else  return 1;
+                                      }else{ 
+                                          if(x[8] >= 7)  return 1;
+                                          else{ 
+                                              if(x[0] >= 287)  return 0 ;
+                                              else{
+                                                  if(x[2] >= 512)  return -1;
+                                                  else{ 
+                                                      if(x[10] <= 0.65)   return -1;
+                                                      else   return 0 ;
+                                                  }
+                                              }
+                                          }
+                                      }
+                                  }
+                              }
+                          }                            
+                      }                            
+                  }                                
+              }                                    
+          }                                        
+      }                                            
+  }
+}
+
+int TreeDepth2(float *x){
+  if(x[3] >= 2)  return 1;
+  else{ 
+      if(x[11] >= 0.5){ 
+          if(x[5] <= 29){  
+              if(x[11] <= 0.7)  return -1;
+              else{   
+                  if(x[0] <= 333){  
+                      if(x[2] >= 576)  return -1;
+                      else{ 
+                          if(x[1] >= 1984)  return 0;
+                          else{
+                              if(x[0] <= 187)  return -1;
+                              else   return 0;
+                          }
+                      }
+                  }else{ 
+                      if( x[11] >= 0.9)  return 0;
+                      else{  
+                          if(x[5] >= 23)  return -1;
+                          else{  
+                              if(x[5] <= 17)  return -1;
+                              else  return 0;
+                          }
+                      }
+                  }
+              }
+          }else{  
+              if(x[5] <= 44){  
+                  if(x[0] <= 522 ){ 
+                      if(x[2] >= 576)  return -1;
+                      else{  
+                          if(x[5] >= 38)  return 1;
+                          else{ 
+                              if(x[5] <= 31)  return 1;
+                              else   return -1;
+                          }
+                      }
+                  }else{ 
+                      if(x[5] >= 44) { 
+                          if(x[0] <= 1459)  return 1;
+                          else   return -1;
+                      }else{  
+                          if(x[5] <= 30)  return 1;
+                          else{   
+                              if(x[0] >= 2058)  return 1;
+                              else{   
+                                  if(x[2] <= 1984)  return 1;
+                                  else   return 0;
+                              }
+                          }
+                      }
+                  }
+              }else{ 
+                  if(x[11] >= 0.85){  
+                      if(x[5] <= 50)  return 1;
+                      else{  
+                          if(x[6] <= 0)  return 0;
+                          else{   
+                              if(x[2] <= 1024)  return 1;
+                              else   return 0;
+                          }
+                      }
+                  }else{   
+                      if(x[5] <= 50){  
+                          if(x[11] <= 0.6) { 
+                              if(x[2] <= 1024)  return 0;
+                              else   return -1;
+                          }else{  
+                              if(x[11] <= 0.65)  return 0;
+                              else{   
+                                  if(x[8] >= 26)  return 1;
+                                  else{   
+                                      if(x[5] <= 49)  return 0;
+                                      else   return 1;
+                                  }
+                              }
+                          }
+                      }else{   
+                          if(x[4] >= 1)  return 0;
+                          else{   
+                              if(x[2] >= 2112)  return 0;
+                              else{   
+                                  if(x[1] >= 4032)  return 0;
+                                  else{   
+                                      if(x[11] >= 0.8)  return 0;
+                                      else{   
+                                          if(x[2] <= 896){  
+                                              if(x[0] >= 546)  return 0;
+                                              else{    
+                                                  if(x[11] <= 0.5)  return -1;
+                                                  else   return 0;
+                                              }
+                                          }else{   
+                                              if(x[0] <= 1023)  return -1;
+                                              else{   
+                                                  if(x[2] <= 1024)  return 0;
+                                                  else   return -1;
+                                              }
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+      }else{   
+          if(x[5] <= 29)  return -1;
+          else{   
+              if(x[5] <= 31){  
+                  if(x[0] >= 706)  return 1;
+                  else{   
+                      if(x[2] <= 640)  return 1;
+                      else  return -1;
+                  }
+              }else{   
+                  if(x[5] <= 36)  return -1;
+                  else{   
+                      if(x[5] <= 38){  
+                          if(x[11] <= 0.3)  return -1;
+                          else   return 1;
+                      }else{   
+                          if(x[5] <= 49){  
+                              if(x[11] >= 0.4){  
+                                  if(x[5] >= 48)  return -1;
+                                  else{   
+                                      if(x[0] <= 1585)  return 0;
+                                      else   return -1;
+                                  }
+                              }else   
+                                  if(x[5] <= 41)  return -1;
+                                  else{   
+                                      if(x[5] >= 44)  return -1;
+                                      else{   
+                                          if(x[2] >= 1344)  return -1;
+                                          else   
+                                              if(x[9] >= 3)  return -1;
+                                              else{   
+                                                  if(x[0] <= 624)  return -1;
+                                                  else   return 0;
+                                              }
+                                          }
+                                  }
+                          }else{  
+                              if(x[10] >= 7)  return -1;
+                              else{   
+                                  if(x[2] >= 1344){  
+                                      if(x[5] <= 50)  return -1;
+                                      else{   
+                                          if(x[0] >= 2098)  return 0;
+                                          else{   
+                                              if(x[11] >= 0.45)  return 0;
+                                              else{    
+                                                  if(x[7] >= 11)  return 0;
+                                                  else{   
+                                                      if(x[8] <= 10)  return -1;
+                                                      else   return 0;
+                                                  }
+                                              }
+                                          }
+                                      }
+                                  }else{   
+                                      if(x[4] >= 1)  return 0;
+                                      else{   
+                                          if(x[1] >= 4032)  return 0;
+                                          else{   
+                                              if(x[0] >= 598)  return 0;
+                                              else {  
+                                                  if(x[10] >= 1)  return 0;
+                                                  else{    
+                                                      if(x[11] <= 0.05)  return -1;
+                                                      else{   
+                                                          if(x[1] >= 3328)  return 0;
+                                                          else{   
+                                                              if(x[0] <= 92)  return -1;
+                                                              else{   
+                                                                  if(x[2] <= 256)  return 0;
+                                                                  else   return -1;
+                                                              }
+                                                          }
+                                                      }
+                                                  }
+                                              }
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+      }
+  }
+}
+
+int TreeDepth3(float *x){
+  if(x[3] > 0){
+      if(x[5] > 25) return 0;
+      else{ 
+          if(x[7] > 0.4) return 0;
+          else{ 
+              if(x[7] > 0.2) return 0;
+              else{ 
+                  if(x[0] > 795) return -1;
+                  else {
+                      if(x[0] > 440) return 0;
+                      else{  
+                          if(x[2] <= 640) return 0;
+                          else return -1;
+                      }    
+                  }        
+              }
+          }
+      }
+  }else{
+      if(x[5] <= 29 ){
+          if(x[5] > 23) return -1;
+          else{  
+              if(x[7] <= 0.85) return -1;
+              else{  
+                  if(x[2] > 1280) return -1;
+                  else{  
+                      if(x[0] <= 430) return -1;
+                      else  return 0;
+                  }
+              }
+          }
+      }else{  
+          if(x[5] <= 43){ 
+              if(x[7] > 0.45){ 
+                  if(x[7] > 0.55){ 
+                      if(x[0] > 764) return 0;
+                      else{  
+                          if(x[2] <= 768) return 0;
+                          else return -1;
+                      }
+                  }else  
+                      if(x[5] > 38) return 0;
+                      else{  
+                          if(x[0] > 752) return 0;
+                          else { 
+                              if(x[2] <= 704) return 0;
+                              else  return -1;
+                          }
+                      }
+              }else{  
+                  if(x[5] <= 31){ 
+                      if(x[0] > 690) return 0;
+                      else { 
+                          if(x[2] > 640) return -1;
+                          else{  
+                              if(x[0] > 363) return 0;
+                              else{  
+                                  if(x[2] <= 320) return 0;
+                                  else  return -1;
+                              }
+                          }
+                      }
+                  }else{  
+                      if(x[7] <= 0.35) return -1;
+                      else{  
+                          if(x[5] <= 38){ 
+                              if(x[5] <= 37) return -1;
+                              else{  
+                                  if(x[0] <= 2021) return 0;
+                                  else return -1;
+                              }
+                          }else{  
+                              if(x[7] <= 0.4) return -1;
+                              else{  
+                                  if(x[0] > 1858) return -1;
+                                  else{  
+                                      if(x[5] <= 42) return 0;
+                                      else  return -1;
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }else{  
+              if(x[7] <= 0.6){ 
+                  if(x[7] <= 0.3) return -1;
+                  else{  
+                      if(x[5] > 48) return -1;
+                      else{  
+                          if(x[7] <= 0.5) return -1;
+                          else{  
+                              if(x[0] <= 105) return 0;
+                              else  return -1;
+                          }
+                      }
+                  }
+              }else{  
+                  if(x[5] > 50){ 
+                      if(x[7] <= 0.8){ 
+                          if(x[2] <= 64) return 0;
+                          else  return -1;
+                      }else{  
+                          if(x[4] <= 0) return 0;
+                          else{ 
+                              if(x[6] <= 2) return 0;
+                              else{  
+                                  if(x[1] <= 3584) return -1;
+                                  else  return 0;
+                              }
+                          }
+                      }
+                  }else{  
+                      if(x[2] > 1600){ 
+                          if(x[0] <= 1663) return -1;
+                          else{  
+                              if(x[5] <= 45) return -1;
+                              else{  
+                                  if(x[7] <= 0.75) return -1;
+                                  else  return 0;
+                              }
+                          }
+                      }else{  
+                          if(x[7] > 0.8){ 
+                              if(x[5] > 49) return 0;
+                              else{  
+                                  if(x[5] <= 48) return 0;
+                                  else  return -1;
+                              }
+                          }else{  
+                              if(x[5] <= 48){ 
+                                  if(x[2] <= 1536) return 0;
+                                  else  return -1;
+                              }else{  
+                                  if(x[5] <= 49) return -1;
+                                  else{  
+                                      if(x[7] <= 0.65) return -1;
+                                      else  return 0;
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+      }
+  }
+
+}
+
+
+//! \}
 
 //! \}
